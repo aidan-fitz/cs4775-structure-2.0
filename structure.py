@@ -24,8 +24,16 @@ class StructureData:
         '''
         Initializes a STRUCTURE 2.0 data object.
         '''
+        # Copy inputs
         self.X = X
         self.K = K
+        # Convenience parameters: number of loci, number of individuals, and number of copies
+        # per allele (ploidy)
+        self.num_loci, self.sample_size, self.ploidy = self.X.shape
+        # Initialize generator
+        self.rng = np.random.default_rng()
+        # Initialize Z: draw each Z[l, i, a] uniformly from k in {0, ..., K-1}
+        self.Z = self.rng.integers(self.K, size=self.X.shape)
     
     def gibbs_round(self):
         '''
