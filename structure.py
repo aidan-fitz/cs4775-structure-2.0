@@ -20,7 +20,7 @@ class StructureData:
     - lamda[j] (float): parameters to the Dirichlet distribution for the hypothetical ancestral
       population in the F model.
     '''
-    def __init__(self, X, K) -> None:
+    def __init__(self, X: np.ndarray, K: int) -> None:
         '''
         Initializes a STRUCTURE 2.0 data object.
         '''
@@ -34,9 +34,5 @@ class StructureData:
         self.rng = np.random.default_rng()
         # Initialize Z: draw each Z[l, i, a] uniformly from k in {0, ..., K-1}
         self.Z = self.rng.integers(self.K, size=self.X.shape)
-    
-    def gibbs_round(self):
-        '''
-        Performs a round of Gibbs sampling.
-        TODO In-place or out-of-place?
-        '''
+        # "Niceness": a quantity proportional to the likelihood of this model (log-space)
+        self.niceness = -np.inf
