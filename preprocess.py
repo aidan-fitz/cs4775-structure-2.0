@@ -2,6 +2,16 @@ import numpy as np
 import vcf
 
 def read_vcf(filename):
+    '''
+    Reads a VCF file and converts it to the internal NumPy representation.
+    
+    :param filename: the path to the VCF file
+    :return:
+        X: genotype at each locus for each individual
+        J: number of alleles for each locus
+        POS: position of each locus
+    :rtype: (ndarray, ndarray, ndarray)
+    '''
     with open(filename, 'r') as f:
         vcf_reader = vcf.Reader(f)
         vcf_records = list(vcf_reader)
