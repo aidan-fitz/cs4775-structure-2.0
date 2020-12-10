@@ -39,6 +39,9 @@ def read_vcf(filename):
             X[l, i, :] = alleles
     return X, J, POS
 
+def drop_loci(X, J, POS, frac=0.3):
+    pass
+
 def test_read_vcf(filename):
     X, J, POS = read_vcf(filename)
     print(X.shape, J.shape, POS.shape)
