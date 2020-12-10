@@ -17,7 +17,7 @@ class StructureData:
     '''
     def __init__(self, X: np.ndarray, K: int) -> None:
         '''
-        Initializes a STRUCTURE 2.0 data object.
+        Initializes a STRUCTURE data object.
         '''
         # Copy inputs
         self.X = X
