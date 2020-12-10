@@ -1,8 +1,8 @@
 import numpy as np
 
-class StructureData:
+class Structure:
     '''
-    An object that stores the variables used in STRUCTURE 1.0.
+    Implements the STRUCTURE 1.0 population structure model with admixture.
 
     Inputs:
     - X[l, i, a] (int): the genotype of allele copy `a` at locus `l` for individual `i`
@@ -31,3 +31,26 @@ class StructureData:
         self.Z = self.rng.integers(self.K, size=self.X.shape)
         # "Niceness": a quantity proportional to the likelihood of this model (log-space)
         self.niceness = -np.inf
+
+    def step_pq(self):
+        '''
+        Performs the first step in the Gibbs training loop: sampling P, Q from Pr(P, Q | X, Z)
+        '''
+
+    def step_z(self):
+        '''
+        Performs the second step in the Gibbs training loop: sampling Z from Pr(Z | X, P, Q)
+        '''
+    
+    def step_alpha(self):
+        '''
+        Performs a Metropolis-Hastings step for alpha.
+        '''
+    
+    def gibbs_round(self):
+        '''
+        Performs one round of Gibbs sampling. See Algorithm 2 in Pritchard et al. (2000).
+        '''
+        self.step_pq()
+        self.step_z()
+        self.step_alpha()
