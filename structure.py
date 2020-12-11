@@ -1,4 +1,5 @@
 import numpy as np
+from itertools import product
 
 class Structure:
     '''
@@ -49,9 +50,8 @@ class Structure:
             # N[k, j] = "the number of copies of allele j at locus l ... assigned (by Z)
             # to population k" (Algorithm A2, Pritchard et al. 2000)
             N = np.zeros((self.K, self.J[l]), dtype=np.uint64)
-            for k in range(self.K):
-                for j in range(self.J[l]):
-                    N[k, j] = np.count_nonzero((self.X[l] == j) & (self.Z[l] == k))
+            for k, j in product(range(self.K), range(self.J[l])):
+                N[k, j] = np.count_nonzero((self.X[l] == j) & (self.Z[l] == k))
             # Sample each P[k, l, :] from Dirichlet (N[k] + lambda)
             # Using different values of lambda[j] for each allele allows us to model correlations
             # between allele frequencies. This assumption is better for closely related populations.
@@ -74,6 +74,11 @@ class Structure:
         '''
         Performs the second step in the Gibbs training loop: sampling Z from Pr(Z | X, P, Q)
         '''
+        for l, i, a in product(range(self.num_loci), range(self.sample_size), range(self.ploidy)):
+            # Sample Z[l, i, a] from Pr(Z[l, i, a] = k | X, P, Q) using Equation A12
+            prob_k = self.Q[i] * self.P[:, l, self.X[l, i, a]]
+            prob_k /= np.sum(prob_k)
+            self.Z[l, i, a] = self.rng.choice(self.K, p=prob_k)
     
     def step_alpha(self):
         '''
