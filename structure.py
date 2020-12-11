@@ -81,9 +81,12 @@ class Structure:
             prob_k /= np.sum(prob_k)
             self.Z[l, i, a] = self.rng.choice(self.K, p=prob_k)
     
-    def likelihood_alpha(self, alpha):
+    def log_likelihood_alpha(self, alpha):
         '''
         Returns the log likelihood of alpha given the current values of Q.
+        The likelihood function of alpha is equal to the product of the probabilities of
+        each Q[i] as drawn from a Dirichlet distribution where all concentration parameters
+        are set to alpha.
         '''
         log_likelihoods = np.zeros(self.sample_size)
         alpha_vec = np.full(self.K, alpha)
@@ -100,7 +103,7 @@ class Structure:
         # alpha must be in (0, 10)
         if 0 < new_alpha and new_alpha < 10:
             # Compute the likelihood ratio of the old and new alphas
-            likelihood_ratio = np.exp(self.likelihood_alpha(new_alpha) - self.likelihood_alpha(self.alpha))
+            likelihood_ratio = np.exp(self.log_likelihood_alpha(new_alpha) - self.log_likelihood_alpha(self.alpha))
             # Draw a uniform random variable between 0 and 1
             uniform = self.rng.random()
             # With probability `likelihood_ratio`, accept the new alpha
