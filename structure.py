@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.stats import dirichlet
 from itertools import product
 
 class Structure:
@@ -36,8 +37,8 @@ class Structure:
         self.P = np.zeros((self.K, self.num_loci, np.max(self.J)))
         # Initialize Q: empty K * sample_size array
         self.Q = np.zeros((self.sample_size, self.K))
-        # Initialize alpha: arbitary constant
-        self.alpha = 1.0
+        # Initialize alpha: draw uniformly from [0, 10)
+        self.alpha = self.rng.uniform(10)
         # "Niceness": a quantity proportional to the likelihood of this model (log-space)
         self.niceness = -np.inf
 
@@ -80,10 +81,31 @@ class Structure:
             prob_k /= np.sum(prob_k)
             self.Z[l, i, a] = self.rng.choice(self.K, p=prob_k)
     
+    def likelihood_alpha(self, alpha):
+        '''
+        Returns the log likelihood of alpha given the current values of Q.
+        '''
+        log_likelihoods = np.zeros(self.sample_size)
+        alpha_vec = np.full(self.K, alpha)
+        for i in range(self.sample_size):
+            log_likelihoods[i] = dirichlet.logpdf(self.Q[i], alpha_vec)
+        return np.sum(log_likelihoods)
+
     def step_alpha(self):
         '''
         Performs a Metropolis-Hastings step for alpha.
         '''
+        # Sample a new alpha from N(alpha, 0.25)
+        new_alpha = self.rng.normal(self.alpha, 0.25)
+        # alpha must be in (0, 10)
+        if 0 < new_alpha and new_alpha < 10:
+            # Compute the likelihood ratio of the old and new alphas
+            likelihood_ratio = np.exp(self.likelihood_alpha(new_alpha) - self.likelihood_alpha(self.alpha))
+            # Draw a uniform random variable between 0 and 1
+            uniform = self.rng.random()
+            # With probability `likelihood_ratio`, accept the new alpha
+            if uniform <= likelihood_ratio:
+                self.alpha = new_alpha
     
     def gibbs_round(self):
         '''
