@@ -12,7 +12,7 @@ class Structure:
     Want to estimate:
     - Z[l, i, a] (int): the origin of the `a`th allele copy at locus `l` in individual `i`
     - P[k, l, j] (float): the frequency of allele `j` at locus `l` in population `k`
-    - Q[k, i] (float): the fraction of individual `i`'s ancestry from population `k`
+    - Q[i, k] (float): the fraction of individual `i`'s ancestry from population `k`
     - alpha (float): a parameter to the underlying Dirichlet distribution. Indicates the
       degree of admixture in the populations.
     '''
@@ -33,6 +33,10 @@ class Structure:
         self.Z = self.rng.integers(self.K, size=self.X.shape)
         # Initialize P: empty K * num_loci * max(J) array
         self.P = np.zeros((self.K, self.num_loci, np.max(self.J)))
+        # Initialize Q: empty K * sample_size array
+        self.Q = np.zeros((self.sample_size, self.K))
+        # Initialize alpha: arbitary constant
+        self.alpha = 1.0
         # "Niceness": a quantity proportional to the likelihood of this model (log-space)
         self.niceness = -np.inf
 
@@ -55,6 +59,15 @@ class Structure:
             lmbda = 1.0
             for k in range(self.K):
                 self.P[k, l, :] = self.rng.dirichlet(N[k] + lmbda)
+        # Sample Q
+        M = np.zeros_like(self.Q)
+        for i in range(self.sample_size):
+            # M[i, k] = "the number of allele copies in individual i that originated (according to Z)
+            # in population k" (Algorithm A3, Pritchard et al. 2000)
+            for k in range(self.K):
+                M[i, k] = np.count_nonzero(self.Z[:, i, :] == k)
+            # Sample each Q[i] from Dirichlet (M[i] + alpha)
+            self.Q[i] = self.rng.dirichlet(M[i] + self.alpha)
 
 
     def step_z(self):
