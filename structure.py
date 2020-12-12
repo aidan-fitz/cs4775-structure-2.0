@@ -1,6 +1,7 @@
 import numpy as np
-from scipy.stats import dirichlet
+from scipy.stats import dirichlet, mode
 from itertools import product
+from copy import deepcopy
 
 class Structure:
     '''
@@ -39,8 +40,6 @@ class Structure:
         self.Q = np.zeros((self.sample_size, self.K))
         # Initialize alpha: draw uniformly from [0, 10)
         self.alpha = self.rng.uniform(10)
-        # "Niceness": a quantity proportional to the likelihood of this model (log-space)
-        self.niceness = -np.inf
 
     def step_pq(self):
         '''
@@ -119,3 +118,33 @@ class Structure:
         self.step_pq()
         self.step_z()
         self.step_alpha()
+
+    def gibbs_sampling(self, m: int = 1000, c: int = 50, num_samples: int = 30):
+        '''
+        Performs a Gibbs sampling loop.
+
+        Parameters:
+        - m (int): the burn-in period
+        - c (int): the number of rounds between samples
+        - num_samples (int): the number of samples to take
+        '''
+        # Burn-in: discard the first several rounds
+        for _ in range(m):
+            self.gibbs_round()
+        # Take a sample every t rounds
+        samples = []
+        for _ in range(num_samples):
+            for _ in range(c):
+                self.gibbs_round()
+            # Use deepcopy to take a snapshot of the object state
+            samples.append(deepcopy(self))
+        # Aggregate all samples
+        Z_all = np.stack(map(lambda obj: obj.Z, samples), axis=0)
+        P_all = np.stack(map(lambda obj: obj.P, samples), axis=0)
+        Q_all = np.stack(map(lambda obj: obj.Q, samples), axis=0)
+        alpha_all = np.fromiter(map(lambda obj: obj.alpha, samples))
+        # Take the mean of P, Q, alpha, and the mode of Z; and assign them to this object
+        self.Z, _ = mode(Z_all, axis=0)
+        self.P = np.mean(P_all, axis=0)
+        self.Q = np.mean(Q_all, axis=0)
+        self.alpha = np.mean(alpha_all)
