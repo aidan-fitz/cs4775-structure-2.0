@@ -59,7 +59,9 @@ class Structure:
             # We use lambda = 1.0, implying that allele frequencies are independent.
             lmbda = 1.0
             for k in range(self.K):
-                self.P[k, l, :] = self.rng.dirichlet(N[k] + lmbda)
+                # Since the sampled vector is variable-length, we assign it only to the first
+                # J[l] elements of P[k, l]
+                self.P[k, l, 0:self.J[l]] = self.rng.dirichlet(N[k] + lmbda)
         # Sample Q
         M = np.zeros_like(self.Q)
         for i in range(self.sample_size):

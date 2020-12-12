@@ -10,15 +10,21 @@ def genetic_distance(l1: int, l2: int) -> float:
     # One centimorgan = about 1 million bp
     return np.abs(l1 - l2) / 1e8
 
-def weight(P: np.ndarray) -> np.ndarray:
+def weight(P: np.ndarray, k1: int = 0, k2: int = 1) -> np.ndarray:
     '''
-    Computes the rolloff weight function for each locus.
+    Computes the rolloff weight function for each locus, for two populations.
 
     Parameters:
     - P[k, l, j] (float): the frequency of allele `j` at locus `l` in population `k`
+    - k1, k2 (int): two populations chosen for this function. Default: 0, 1
     '''
     # Caution: Each P[k, l, :] sums to 1
-    pass
+    # Choose the alleles with the highest frequency in each population at each locus
+    max_allele_freq = np.amax(P, axis=2)
+    # Choose k1, k2
+    a, b = max_allele_freq[k1], max_allele_freq[k2]
+    p = (a + b) / 2
+    return (a - b) / np.sqrt(p * (1 - p))
 
 def ld_score(X: np.ndarray) -> np.ndarray:
     '''
