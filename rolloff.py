@@ -1,6 +1,5 @@
 import numpy as np
-from numpy.core.fromnumeric import prod
-from scipy.stats import pearsonr
+from scipy.stats import pearsonr, linregress
 from itertools import product
 
 def genetic_distance(pos: np.ndarray) -> np.ndarray:
@@ -8,7 +7,7 @@ def genetic_distance(pos: np.ndarray) -> np.ndarray:
     Computes the genetic distance in morgans between all pairs of loci in `pos`.
 
     Parameters:
-    - pos[l] (float): the position of locus `l` in bps
+    - pos[l] (int): the position of locus `l` in bps
 
     Returns:
     - dist[l1, l2] (float): the genetic distance between `l1` and `l2` in morgans
@@ -73,8 +72,7 @@ def bin_by_distance(dist: np.ndarray, min_bin_size: float = 9e-4):
     should create. Default: 0.09 cM. ValueError is raised if this value is less than 0.05 cM.
 
     Returns:
-    - bin_indices[l1, l2] (int): the index of the bin that `(l1, l2)` should be assigned to.
-    Indices start at 1.
+    - bin_indices[l1, l2] (int): the zero-based index of the bin that `(l1, l2)` should be assigned to.
     - num_bins (int): the number of bins
     '''
     # Ensure min_bin_size is at least 0.05 cM
@@ -89,19 +87,23 @@ def bin_by_distance(dist: np.ndarray, min_bin_size: float = 9e-4):
     num_boundaries = int(np.ceil(max_dist / min_bin_size))
     bin_boundaries = np.linspace(0, max_dist + 1e-6, num_boundaries)
     # Assign elements of the input tensor to bins and return the number of bins
-    bin_indices = np.digitize(dist, bin_boundaries)
+    bin_indices = np.digitize(dist, bin_boundaries) - 1
     num_bins = num_boundaries - 1
     return bin_indices, num_bins
 
 
 def num_generations(X: np.ndarray, P: np.ndarray, pos: np.ndarray, k1: int = 0, k2: int = 1) -> float:
     '''
-    Estimates the number of generates since admixture between populations `k1` and `k2`.
+    Estimates the number of generations since admixture between populations `k1` and `k2`.
 
     Parameters:
     - X[l, i, a] (int): the genotype of allele copy `a` at locus `l` for individual `i`
     - P[k, l, j] (float): the frequency of allele `j` at locus `l` in population `k`
+    - pos[l] (int): the position of locus `l` in bps
     - k1, k2 (int): two populations chosen for this function. Default: 0, 1
+
+    Returns:
+    - n (float): the estimated number of generations since admixture
     '''
     # Compute weights, LD scores, and distances for all loci
     w = weight(P, k1, k2)
@@ -111,3 +113,17 @@ def num_generations(X: np.ndarray, P: np.ndarray, pos: np.ndarray, k1: int = 0, 
     w_prod = np.outer(w, w)
     # Assign all data points to bins based on genetic distance
     bin_indices, num_bins = bin_by_distance(dist)
+    # Compute rolloff statistics for all bins
+    coeff, dist_bin = np.zeros(num_bins), np.zeros(num_bins)
+    for bin in range(num_bins):
+        # Select the data points in this bin
+        bin_mask = (bin_indices == bin)
+        w_bin, z_bin, data_dists_bin = w_prod[bin_mask], z[bin_mask], dist[bin_mask]
+        # Use the average distance to represent this bin
+        dist_bin[bin] = np.mean(data_dists_bin)
+        # Compute the binned correlation coefficient
+        coeff[bin] = pearsonr(w_bin, z_bin)
+    # Fit the binned coefficients to an exponential curve given by coeff = exp(-n * dist_bin)
+    # via log-linear regression
+    slope = linregress(dist, np.log(coeff))[0]
+    return -slope
