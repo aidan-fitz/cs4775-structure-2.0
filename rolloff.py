@@ -49,6 +49,9 @@ def ld_score(X: np.ndarray) -> np.ndarray:
     '''
     # Get number of loci, number of samples
     L, N = X.shape[:2]
+    # Ensure N >= 4
+    if N < 4:
+        raise ValueError('Number of individuals in sample must be at least 4')
     # Compute Pearson correlation coefficients between all loci
     corr = np.zeros((L, L))
     for l1, l2 in product(range(L), range(L)):
@@ -60,16 +63,35 @@ def ld_score(X: np.ndarray) -> np.ndarray:
     # Multiply by sqrt(N - 3) and return
     return np.sqrt(N - 3) * z_transform
 
-def bin_by_distance(dist: np.ndarray, w_prod: np.ndarray, z: np.ndarray):
+def bin_by_distance(dist: np.ndarray, min_bin_size: float = 9e-4):
     '''
-    Sorts all pairs of loci by genetic distance, then bins them 
+    Assigns distances (in morgans) to bins without sorting.
+
+    Parameters:
+    - dist[l1, l2] (float): the genetic distance between `l1` and `l2` in morgans
+    - min_bin_size (float): the minimum size in morgans of the bins that this function
+    should create. Default: 0.09 cM. ValueError is raised if this value is less than 0.05 cM.
+
+    Returns:
+    - bin_indices[l1, l2] (int): the index of the bin that `(l1, l2)` should be assigned to.
+    Indices start at 1.
+    - num_bins (int): the number of bins
     '''
-    # Sort all pairs of loci using dist as a sort key
-    dist, w_prod, z = dist.flatten(), w_prod.flatten(), z.flatten()
-    sort_indices = dist.argsort()
-    dist, w_prod, z = dist[sort_indices], w_prod[sort_indices], z[sort_indices]
-    # Bin size = 0.1 cM
-    bin_size = 0.1e-2
+    # Ensure min_bin_size is at least 0.05 cM
+    if min_bin_size < 5e-4:
+        raise ValueError('Bin size must be at least 0.05 centimorgans')
+    # Set the max distance as the highest bin value
+    # Since dist is now sorted, the highest value must be at the end
+    max_dist = dist[-1]
+    # Create evenly spaced bins no less than 0.05 cM wide
+    # Add a tiny amount to max_dist while computing bin boundaries so that max_dist
+    # falls within the last bin instead of just outside it
+    num_boundaries = int(np.ceil(max_dist / min_bin_size))
+    bin_boundaries = np.linspace(0, max_dist + 1e-6, num_boundaries)
+    # Assign elements of the input tensor to bins and return the number of bins
+    bin_indices = np.digitize(dist, bin_boundaries)
+    num_bins = num_boundaries - 1
+    return bin_indices, num_bins
 
 
 def num_generations(X: np.ndarray, P: np.ndarray, pos: np.ndarray, k1: int = 0, k2: int = 1) -> float:
@@ -87,5 +109,5 @@ def num_generations(X: np.ndarray, P: np.ndarray, pos: np.ndarray, k1: int = 0, 
     dist = genetic_distance(pos)
     # Compute the outer product of w with itself, i.e. w(l1) * w(l2) for all l1, l2
     w_prod = np.outer(w, w)
-    # Sort all cells by genetic distance
-    bin_by_distance(dist, w_prod, z)
+    # Assign all data points to bins based on genetic distance
+    bin_indices, num_bins = bin_by_distance(dist)
