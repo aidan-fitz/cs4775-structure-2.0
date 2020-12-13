@@ -8,6 +8,7 @@ import argparse
 import h5py
 from preprocess import read_vcf
 import os
+import cProfile
 
 class Structure:
     '''
@@ -180,6 +181,7 @@ def parse_args():
     parser.add_argument('file', metavar='The data file containing the sample in VCF format')
     parser.add_argument('-k', type=int, default=2, metavar='The number of populations')
     parser.add_argument('-o', '--out', metavar='The file to which the result will be written in HDF5 format')
+    parser.add_argument('--profile', action='store_true')
     return parser.parse_args()
 
 def main():
@@ -189,16 +191,19 @@ def main():
     X, J, POS = read_vcf(args.file)
     # Run the STRUCTURE algorithm
     structure = Structure(X, J, args.k)
-    structure.gibbs_sampling(5, 5, 5)
-    # Create output file using command-line argument if provided. If not, construct the filename
-    # by replacing the file extension with .hdf5
-    if args.out:
-        out = args.out
+    if args.profile:
+        cProfile.runctx('structure.gibbs_round()', {}, {'structure': structure}, sort='cumtime')
     else:
-        root, ext = os.path.splitext(args.file)
-        out = os.path.basename(root) + '.hdf5'
-    # Write to the output file
-    structure.save(out)
+        structure.gibbs_sampling(400, 20, 20)
+        # Create output file using command-line argument if provided. If not, construct
+        # the filename by replacing the file extension with .hdf5
+        if args.out:
+            out = args.out
+        else:
+            root, ext = os.path.splitext(args.file)
+            out = os.path.basename(root) + '.hdf5'
+        # Write to the output file
+        structure.save(out)
 
 if __name__ == '__main__':
     main()
