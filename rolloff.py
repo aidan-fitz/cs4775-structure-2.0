@@ -13,7 +13,7 @@ def genetic_distance(pos: np.ndarray) -> np.ndarray:
     - dist[l1, l2] (float): the genetic distance between `l1` and `l2` in morgans
     '''
     # Compute the physical distances between all pairs of loci
-    dist_bps = np.abs(pos[np.newaxis, :] - pos[:, np.newaxis])
+    dist_bps = np.abs(np.subtract.outer(pos, pos))
     # Convert to genetic distance in morgans (1 centimorgan = about 1 million bp)
     return dist_bps / 1e8
 

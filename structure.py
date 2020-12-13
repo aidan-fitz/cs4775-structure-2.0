@@ -93,7 +93,7 @@ class Structure:
             pmf_k[l, i, a] = self.Q[i] * self.P[:, l, self.X[l, i, a]]
         pmf_k /= np.sum(pmf_k, axis=3, keepdims=True)
         # Convert to cdf; remove the last "hyper-row" (always 1.0)
-        cdf = np.cumsum(pmf_k, axis=3)[:, :, :, :-1]
+        cdf = np.cumsum(pmf_k[:, :, :, :-1], axis=3)
         # Draw random samples from continuous uniform U(0, 1) for each [l, i, a]
         uniform_samples = self.rng.random(self.Z.shape + (1,))
         # Convert the uniform samples to k-values by counting the number of k-indices for which
