@@ -81,11 +81,23 @@ class Structure:
         '''
         Performs the second step in the Gibbs training loop: sampling Z from Pr(Z | X, P, Q)
         '''
+        ## This vectorized sampling algorithm converts continuous uniform samples to k-values
+        ## by using the cdf of Pr(Z[l, i, a] | X, P, Q). Previously, we used a naive
+        ## sampling algorithm based on calling rng.choice() once for each [l, i, a]. This took
+        ## a very long time to run, and rng.choice() cannot be vectorized.
+
+        # Compute the pmf of Pr(Z[l, i, a] = k | X, P, Q) using Equation A12
+        pmf_k = np.zeros((self.num_loci, self.sample_size, self.ploidy, self.K))
         for l, i, a in product(range(self.num_loci), range(self.sample_size), range(self.ploidy)):
-            # Sample Z[l, i, a] from Pr(Z[l, i, a] = k | X, P, Q) using Equation A12
             prob_k = self.Q[i] * self.P[:, l, self.X[l, i, a]]
-            prob_k /= np.sum(prob_k)
-            self.Z[l, i, a] = self.rng.choice(self.K, p=prob_k)
+            pmf_k[l, i, a] = prob_k / np.sum(prob_k)
+        # Convert to cdf; remove the last "hyper-row" (always 1.0)
+        cdf = np.cumsum(pmf_k, axis=3)[:, :, :, :-1]
+        # Draw random samples from continuous uniform U(0, 1) for each [l, i, a]
+        uniform_samples = self.rng.random(self.Z.shape + (1,))
+        # Convert the uniform samples to k-values by counting the number of k-indices for which
+        # the uniform sample is greater than the cdf at that index
+        self.Z = np.sum(uniform_samples > cdf, axis=3)
     
     def log_likelihood_alpha(self, alpha):
         '''
