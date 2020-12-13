@@ -161,7 +161,7 @@ class Structure:
         Q_all = np.stack(list(map(attrgetter('Q'), samples)), axis=0)
         alpha_all = np.array(list(map(attrgetter('alpha'), samples)))
         # Take the mean of P, Q, alpha, and the mode of Z; and assign them to this object
-        self.Z, _ = mode(Z_all, axis=0)
+        self.Z = mode(Z_all, axis=0)[0].squeeze(axis=0)
         self.P = np.mean(P_all, axis=0)
         self.Q = np.mean(Q_all, axis=0)
         self.alpha = np.mean(alpha_all)
