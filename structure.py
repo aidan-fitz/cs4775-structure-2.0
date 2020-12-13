@@ -6,7 +6,7 @@ from operator import attrgetter
 
 import argparse
 import h5py
-from preprocess import read_vcf
+from preprocess import read_vcf, drop_loci
 import os
 import cProfile
 
@@ -187,8 +187,8 @@ def parse_args():
 def main():
     # Parse arguments
     args = parse_args()
-    # Read from file
-    X, J, POS = read_vcf(args.file)
+    # Read from file and randomly drop loci
+    X, J, POS = drop_loci(*read_vcf(args.file), frac=0.6)
     # Run the STRUCTURE algorithm
     structure = Structure(X, J, args.k)
     if args.profile:
