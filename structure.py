@@ -3,6 +3,12 @@ from scipy.stats import dirichlet, mode
 from itertools import product
 from copy import deepcopy
 
+import argparse
+import h5py
+from vcf import parser
+from preprocess import read_vcf
+import cProfile
+
 class Structure:
     '''
     Implements the STRUCTURE 1.0 population structure model with admixture.
@@ -70,7 +76,6 @@ class Structure:
                 M[i, k] = np.count_nonzero(self.Z[:, i, :] == k)
             # Sample each Q[i] from Dirichlet (M[i] + alpha)
             self.Q[i] = self.rng.dirichlet(M[i] + self.alpha)
-
 
     def step_z(self):
         '''
@@ -148,3 +153,25 @@ class Structure:
         self.P = np.mean(P_all, axis=0)
         self.Q = np.mean(Q_all, axis=0)
         self.alpha = np.mean(alpha_all)
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='Infer the population structure of a genetic sample using the STRUCTURE algorithm')
+    parser.add_argument('file', metavar='The data file containing the sample in VCF format')
+    parser.add_argument('-k', type=int, default=2, metavar='The number of populations')
+    parser.add_argument('-o', '--out', metavar='The file to which the result will be written in HDF5 format')
+    return parser.parse_args()
+
+def main():
+    # Parse arguments
+    args = parse_args()
+    # Read from file
+    X, J, POS = read_vcf(args.file)
+    # Run the STRUCTURE algorithm
+    structure = Structure(X, J, args.k)
+    # for i in range(5):
+    #     structure.gibbs_round()
+    #     print(f'Round {i}')
+    cProfile.runctx('structure.gibbs_round()', None, {'structure': structure}, sort='cumtime')
+
+if __name__ == '__main__':
+    main()
