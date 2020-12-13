@@ -2,12 +2,12 @@ import numpy as np
 from scipy.stats import dirichlet, mode
 from itertools import product
 from copy import deepcopy
+from operator import attrgetter
 
 import argparse
 import h5py
-from vcf import parser
 from preprocess import read_vcf
-import cProfile
+import os
 
 class Structure:
     '''
@@ -156,15 +156,24 @@ class Structure:
             # Use deepcopy to take a snapshot of the object state
             samples.append(deepcopy(self))
         # Aggregate all samples
-        Z_all = np.stack(map(lambda obj: obj.Z, samples), axis=0)
-        P_all = np.stack(map(lambda obj: obj.P, samples), axis=0)
-        Q_all = np.stack(map(lambda obj: obj.Q, samples), axis=0)
-        alpha_all = np.fromiter(map(lambda obj: obj.alpha, samples))
+        Z_all = np.stack(list(map(attrgetter('Z'), samples)), axis=0)
+        P_all = np.stack(list(map(attrgetter('P'), samples)), axis=0)
+        Q_all = np.stack(list(map(attrgetter('Q'), samples)), axis=0)
+        alpha_all = np.array(list(map(attrgetter('alpha'), samples)))
         # Take the mean of P, Q, alpha, and the mode of Z; and assign them to this object
         self.Z, _ = mode(Z_all, axis=0)
         self.P = np.mean(P_all, axis=0)
         self.Q = np.mean(Q_all, axis=0)
         self.alpha = np.mean(alpha_all)
+    
+    def save(self, hdf5_file):
+        '''
+        Saves the state of this data object to an HDF5 file.
+        '''
+        with h5py.File(hdf5_file, 'w') as f:
+            attrs_to_store = ['X', 'J', 'K', 'Z', 'P', 'Q', 'alpha']
+            for attr in attrs_to_store:
+                f[attr] = getattr(self, attr)
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Infer the population structure of a genetic sample using the STRUCTURE algorithm')
@@ -180,10 +189,16 @@ def main():
     X, J, POS = read_vcf(args.file)
     # Run the STRUCTURE algorithm
     structure = Structure(X, J, args.k)
-    # for i in range(5):
-    #     structure.gibbs_round()
-    #     print(f'Round {i}')
-    cProfile.runctx('structure.gibbs_round()', None, {'structure': structure}, sort='cumtime')
+    structure.gibbs_sampling(5, 5, 5)
+    # Create output file using command-line argument if provided. If not, construct the filename
+    # by replacing the file extension with .hdf5
+    if args.out:
+        out = args.out
+    else:
+        root, ext = os.path.splitext(args.file)
+        out = os.path.basename(root) + '.hdf5'
+    # Write to the output file
+    structure.save(out)
 
 if __name__ == '__main__':
     main()
