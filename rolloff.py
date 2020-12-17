@@ -46,6 +46,7 @@ def weight(P: np.ndarray, k1: int = 0, k2: int = 1) -> np.ndarray:
 def symmetric_outer(X):
     '''
     Performs a symmetric outer product of X with itself, taking the dot products of the rows.
+    Implementation due to https://stackoverflow.com/a/51481295
     '''
     n = X.shape[0]
     res = np.empty((n, n), X.dtype)
