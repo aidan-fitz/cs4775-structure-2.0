@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.stats import pearsonr, linregress
 from tqdm import trange
+import numba
 
 import argparse
 import h5py
@@ -41,6 +42,19 @@ def weight(P: np.ndarray, k1: int = 0, k2: int = 1) -> np.ndarray:
     p = (a + b) / 2
     return (a - b) / np.sqrt(p * (1 - p))
 
+@numba.njit                 
+def symmetric_outer(X):
+    '''
+    Performs a symmetric outer product of X with itself, taking the dot products of the rows.
+    '''
+    n = X.shape[0]
+    res = np.empty((n, n), X.dtype)
+    for i in range(n):
+        for j in range(i+1):
+            res[i, j] = np.dot(X[i], X[j])
+            res[j, i] = res[i, j]
+    return res
+
 def ld_score(X: np.ndarray) -> np.ndarray:
     '''
     Computes the rolloff LD scores between all pairs of loci in the sample.
@@ -60,10 +74,10 @@ def ld_score(X: np.ndarray) -> np.ndarray:
     # Compute Pearson correlation coefficients between all loci (vectorized)
     X_flat = X.reshape((L, -1))
     X_flat = X_flat - np.mean(X_flat, axis=1)[:, None] # this casts X_flat from int to float
-    X_sumsq = np.sum(X_flat**2, axis=1)
     # Numerator: essentially a sum of outer products
-    corr_num = np.einsum('li,mi->lm', X_flat, X_flat)
+    corr_num = symmetric_outer(X_flat)
     # Denominator: square root of outer product of sums of squares
+    X_sumsq = np.sum(X_flat**2, axis=1)
     corr_denom = np.sqrt(np.outer(X_sumsq, X_sumsq))
     corr = corr_num / corr_denom
     # Change infinities to NaNs to be consistent with scipy.stats.pearsonr
