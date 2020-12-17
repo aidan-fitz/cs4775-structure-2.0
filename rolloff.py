@@ -1,5 +1,6 @@
 import numpy as np
-from scipy.stats import pearsonr, linregress
+from scipy.stats import pearsonr
+from scipy.optimize import curve_fit
 from tqdm import trange
 import numba
 
@@ -118,6 +119,8 @@ def bin_by_distance(dist: np.ndarray, min_bin_size: float = 9e-4):
     num_bins = num_boundaries - 1
     return bin_indices, num_bins
 
+def rolloff(d: np.ndarray, n: float, a: float):
+    return a * np.exp(-n * d)
 
 def num_generations(X: np.ndarray, P: np.ndarray, POS: np.ndarray, k1: int = 0, k2: int = 1) -> float:
     '''
@@ -139,7 +142,7 @@ def num_generations(X: np.ndarray, P: np.ndarray, POS: np.ndarray, k1: int = 0, 
     # Compute the outer product of w with itself, i.e. w(l1) * w(l2) for all l1, l2
     w_prod = np.outer(w, w)
     # Assign all data points to bins based on genetic distance
-    bin_indices, num_bins = bin_by_distance(dist, 5e-4)
+    bin_indices, num_bins = bin_by_distance(dist, 9e-4)
     # Compute rolloff statistics for all bins
     coeff, dist_bin = np.zeros(num_bins), np.zeros(num_bins)
     for bin in trange(num_bins, desc='Compute rolloff coefficients'):
@@ -154,10 +157,11 @@ def num_generations(X: np.ndarray, P: np.ndarray, POS: np.ndarray, k1: int = 0, 
             # coeff[bin] = linregress(w_bin, z_bin)[2]
         else:
             coeff[bin] = np.nan
-    # Fit the binned coefficients to an exponential curve given by coeff = exp(-n * dist_bin)
-    # via log-linear regression
-    slope = linregress(dist_bin, np.log(coeff))[0]
-    return -slope
+    print('Distances:', dist_bin)
+    print('Rolloff coefficients:', coeff)
+    # Fit the binned coefficients to an exponential curve given by coeff = a * exp(-n * dist_bin)
+    n, ncov = curve_fit(rolloff, dist_bin, coeff)
+    return n[0], ncov[0, 0]
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Infer the number of generations since admixture')
@@ -182,8 +186,10 @@ def main():
                 {'X': X, 'P': P, 'POS': POS},
                 sort='cumtime')
         else:
-            num_gen = num_generations(X, P, POS)
+            num_gen, n_cov = num_generations(X, P, POS)
+            n_stdev = np.sqrt(n_cov)
             print(f'Number of generations: {num_gen}')
+            print(f'Standard deviation: {n_stdev}')
 
 if __name__ == '__main__':
     main()
