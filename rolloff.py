@@ -2,18 +2,24 @@ import numpy as np
 from scipy.stats import pearsonr, linregress
 from itertools import product
 
-def genetic_distance(pos: np.ndarray) -> np.ndarray:
+import argparse
+import h5py
+import os
+import cProfile
+
+def genetic_distance(POS: np.ndarray) -> np.ndarray:
     '''
-    Computes the genetic distance in morgans between all pairs of loci in `pos`.
+    Computes the genetic distance in morgans between all pairs of loci in `POS`.
 
     Parameters:
-    - pos[l] (int): the position of locus `l` in bps
+    - POS[l] (int): the position of locus `l` in bps
 
     Returns:
     - dist[l1, l2] (float): the genetic distance between `l1` and `l2` in morgans
     '''
     # Compute the physical distances between all pairs of loci
-    dist_bps = np.abs(np.subtract.outer(pos, pos))
+    # Results must be signed integers
+    dist_bps = np.abs(np.subtract.outer(POS, POS, dtype=np.int32))
     # Convert to genetic distance in morgans (1 centimorgan = about 1 million bp)
     return dist_bps / 1e8
 
@@ -54,7 +60,7 @@ def ld_score(X: np.ndarray) -> np.ndarray:
     # Compute Pearson correlation coefficients between all loci
     corr = np.zeros((L, L))
     for l1, l2 in product(range(L), range(L)):
-        corr[l1, l2] = pearsonr(X[l1].flatten(), X[l2].flatten())
+        corr[l1, l2] = pearsonr(X[l1].flatten(), X[l2].flatten())[0]
     # Clip correlation coefficients between [-0.9, 0.9]
     np.clip(corr, -0.9, 0.9, out=corr)
     # Fisher z-transformation
@@ -79,12 +85,13 @@ def bin_by_distance(dist: np.ndarray, min_bin_size: float = 9e-4):
     if min_bin_size < 5e-4:
         raise ValueError('Bin size must be at least 0.05 centimorgans')
     # Set the max distance as the highest bin value
-    # Since dist is now sorted, the highest value must be at the end
-    max_dist = dist[-1]
+    max_dist = np.max(dist)
+    print(max_dist)
     # Create evenly spaced bins no less than 0.05 cM wide
     # Add a tiny amount to max_dist while computing bin boundaries so that max_dist
     # falls within the last bin instead of just outside it
     num_boundaries = int(np.ceil(max_dist / min_bin_size))
+    print(num_boundaries)
     bin_boundaries = np.linspace(0, max_dist + 1e-6, num_boundaries)
     # Assign elements of the input tensor to bins and return the number of bins
     bin_indices = np.digitize(dist, bin_boundaries) - 1
@@ -92,14 +99,14 @@ def bin_by_distance(dist: np.ndarray, min_bin_size: float = 9e-4):
     return bin_indices, num_bins
 
 
-def num_generations(X: np.ndarray, P: np.ndarray, pos: np.ndarray, k1: int = 0, k2: int = 1) -> float:
+def num_generations(X: np.ndarray, P: np.ndarray, POS: np.ndarray, k1: int = 0, k2: int = 1) -> float:
     '''
     Estimates the number of generations since admixture between populations `k1` and `k2`.
 
     Parameters:
     - X[l, i, a] (int): the genotype of allele copy `a` at locus `l` for individual `i`
     - P[k, l, j] (float): the frequency of allele `j` at locus `l` in population `k`
-    - pos[l] (int): the position of locus `l` in bps
+    - POS[l] (int): the position of locus `l` in bps
     - k1, k2 (int): two populations chosen for this function. Default: 0, 1
 
     Returns:
@@ -108,22 +115,57 @@ def num_generations(X: np.ndarray, P: np.ndarray, pos: np.ndarray, k1: int = 0, 
     # Compute weights, LD scores, and distances for all loci
     w = weight(P, k1, k2)
     z = ld_score(X)
-    dist = genetic_distance(pos)
+    dist = genetic_distance(POS)
     # Compute the outer product of w with itself, i.e. w(l1) * w(l2) for all l1, l2
     w_prod = np.outer(w, w)
     # Assign all data points to bins based on genetic distance
-    bin_indices, num_bins = bin_by_distance(dist)
+    bin_indices, num_bins = bin_by_distance(dist, 5e-4)
+    print(num_bins)
     # Compute rolloff statistics for all bins
     coeff, dist_bin = np.zeros(num_bins), np.zeros(num_bins)
     for bin in range(num_bins):
-        # Select the data points in this bin
-        bin_mask = (bin_indices == bin)
+        # Select the data points in this bin, and filter out infinities and NaNs
+        bin_mask = (bin_indices == bin) & np.isfinite(w_prod) & np.isfinite(z)
         w_bin, z_bin, data_dists_bin = w_prod[bin_mask], z[bin_mask], dist[bin_mask]
         # Use the average distance to represent this bin
         dist_bin[bin] = np.mean(data_dists_bin)
-        # Compute the binned correlation coefficient
-        coeff[bin] = pearsonr(w_bin, z_bin)
+        if len(w_bin) >= 2:
+            # Compute the binned correlation coefficient
+            coeff[bin] = pearsonr(w_bin, z_bin)[0]
+            # coeff[bin] = linregress(w_bin, z_bin)[2]
+        else:
+            coeff[bin] = np.nan
     # Fit the binned coefficients to an exponential curve given by coeff = exp(-n * dist_bin)
     # via log-linear regression
-    slope = linregress(dist, np.log(coeff))[0]
+    slope = linregress(dist_bin, np.log(coeff))[0]
     return -slope
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='Infer the number of generations since admixture')
+    parser.add_argument('file', metavar='The data file in HDF5 format')
+    parser.add_argument('--profile', action='store_true')
+    return parser.parse_args()
+
+def to_numpy(hdf5_dset: h5py.Dataset):
+    array = np.empty(hdf5_dset.shape, hdf5_dset.dtype)
+    hdf5_dset.read_direct(array)
+    return array
+
+def main():
+    # Parse arguments
+    args = parse_args()
+    with h5py.File(args.file, 'r') as file:
+        X, P, POS = map(to_numpy, [file['X'], file['P'], file['POS']])
+        if args.profile:
+            cProfile.runctx(
+                'num_generations(X, P, POS)',
+                {'num_generations': num_generations},
+                {'X': X, 'P': P, 'POS': POS},
+                sort='cumtime')
+        else:
+            num_gen = num_generations(X, P, POS)
+            print(f'Number of generations: {num_gen}')
+
+if __name__ == '__main__':
+    main()
+

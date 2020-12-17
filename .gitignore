@@ -128,5 +128,9 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# Input formats
+*.vcf
+*.gz
+
 # Output formats
 *.hdf5

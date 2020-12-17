@@ -3,6 +3,7 @@ from scipy.stats import dirichlet, mode
 from itertools import product
 from copy import deepcopy
 from operator import attrgetter
+from tqdm import trange
 
 import argparse
 import h5py
@@ -17,6 +18,7 @@ class Structure:
     Inputs:
     - X[l, i, a] (int): the genotype of allele copy `a` at locus `l` for individual `i`
     - J[l] (int): the number of possible alleles at locus `l`
+    - POS[l] (int): unused, but required for ROLLOFF
     - K (int): the number of populations
 
     Want to estimate:
@@ -26,13 +28,14 @@ class Structure:
     - alpha (float): a parameter to the underlying Dirichlet distribution. Indicates the
       degree of admixture in the populations.
     '''
-    def __init__(self, X: np.ndarray, J: np.ndarray, K: int) -> None:
+    def __init__(self, X: np.ndarray, J: np.ndarray, POS: np.ndarray, K: int) -> None:
         '''
         Initializes a STRUCTURE data object.
         '''
         # Copy inputs
         self.X = X
         self.J = J
+        self.POS = POS
         self.K = K
         # Convenience parameters: number of loci, number of individuals, and number of copies
         # per allele (ploidy)
@@ -89,8 +92,8 @@ class Structure:
 
         # Compute the pmf of Pr(Z[l, i, a] = k | X, P, Q) using Equation A12
         pmf_k = np.zeros((self.num_loci, self.sample_size, self.ploidy, self.K))
-        for l, i, a in product(range(self.num_loci), range(self.sample_size), range(self.ploidy)):
-            pmf_k[l, i, a] = self.Q[i] * self.P[:, l, self.X[l, i, a]]
+        for l in range(self.num_loci):
+            pmf_k[l] = np.einsum('ik,kia->iak', self.Q, self.P[:, l, self.X[l]])
         pmf_k /= np.sum(pmf_k, axis=3, keepdims=True)
         # Convert to cdf; remove the last "hyper-row" (always 1.0)
         cdf = np.cumsum(pmf_k[:, :, :, :-1], axis=3)
@@ -147,12 +150,12 @@ class Structure:
         - num_samples (int): the number of samples to take
         '''
         # Burn-in: discard the first several rounds
-        for _ in range(m):
+        for _ in trange(m, desc='Burn-in rounds'):
             self.gibbs_round()
         # Take a sample every t rounds
         samples = []
-        for _ in range(num_samples):
-            for _ in range(c):
+        for sample_num in trange(num_samples, desc='Take samples'):
+            for _ in trange(c, desc=f'Rounds for sample {sample_num}'):
                 self.gibbs_round()
             # Use deepcopy to take a snapshot of the object state
             samples.append(deepcopy(self))
@@ -172,7 +175,7 @@ class Structure:
         Saves the state of this data object to an HDF5 file.
         '''
         with h5py.File(hdf5_file, 'w') as f:
-            attrs_to_store = ['X', 'J', 'K', 'Z', 'P', 'Q', 'alpha']
+            attrs_to_store = ['X', 'J', 'POS', 'K', 'Z', 'P', 'Q', 'alpha']
             for attr in attrs_to_store:
                 f[attr] = getattr(self, attr)
 
@@ -182,15 +185,16 @@ def parse_args():
     parser.add_argument('-k', type=int, default=2, metavar='The number of populations')
     parser.add_argument('-o', '--out', metavar='The file to which the result will be written in HDF5 format')
     parser.add_argument('--profile', action='store_true')
+    parser.add_argument('-d', '--drop-frac', type=float, default=0.6, metavar='Randomly drop this fraction of loci')
     return parser.parse_args()
 
 def main():
     # Parse arguments
     args = parse_args()
     # Read from file and randomly drop loci
-    X, J, POS = drop_loci(*read_vcf(args.file), frac=0.6)
+    X, J, POS = read_vcf(args.file, drop_frac=args.drop_frac)
     # Run the STRUCTURE algorithm
-    structure = Structure(X, J, args.k)
+    structure = Structure(X, J, POS, args.k)
     if args.profile:
         cProfile.runctx('structure.gibbs_round()', {}, {'structure': structure}, sort='cumtime')
     else:
