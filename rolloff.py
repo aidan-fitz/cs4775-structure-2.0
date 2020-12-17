@@ -1,10 +1,9 @@
 import numpy as np
 from scipy.stats import pearsonr, linregress
-from itertools import product
+from tqdm import trange
 
 import argparse
 import h5py
-import os
 import cProfile
 
 def genetic_distance(POS: np.ndarray) -> np.ndarray:
@@ -57,10 +56,18 @@ def ld_score(X: np.ndarray) -> np.ndarray:
     # Ensure N >= 4
     if N < 4:
         raise ValueError('Number of individuals in sample must be at least 4')
-    # Compute Pearson correlation coefficients between all loci
-    corr = np.zeros((L, L))
-    for l1, l2 in product(range(L), range(L)):
-        corr[l1, l2] = pearsonr(X[l1].flatten(), X[l2].flatten())[0]
+    print(f'Computing LD scores ({L} loci, {N} samples). Result will be a {L}*{L} matrix.')
+    # Compute Pearson correlation coefficients between all loci (vectorized)
+    X_flat = X.reshape((L, -1))
+    X_flat = X_flat - np.mean(X_flat, axis=1)[:, None] # this casts X_flat from int to float
+    X_sumsq = np.sum(X_flat**2, axis=1)
+    # Numerator: essentially a sum of outer products
+    corr_num = np.einsum('li,mi->lm', X_flat, X_flat)
+    # Denominator: square root of outer product of sums of squares
+    corr_denom = np.sqrt(np.outer(X_sumsq, X_sumsq))
+    corr = corr_num / corr_denom
+    # Change infinities to NaNs to be consistent with scipy.stats.pearsonr
+    corr[~np.isfinite(corr)] = np.nan
     # Clip correlation coefficients between [-0.9, 0.9]
     np.clip(corr, -0.9, 0.9, out=corr)
     # Fisher z-transformation
@@ -86,12 +93,10 @@ def bin_by_distance(dist: np.ndarray, min_bin_size: float = 9e-4):
         raise ValueError('Bin size must be at least 0.05 centimorgans')
     # Set the max distance as the highest bin value
     max_dist = np.max(dist)
-    print(max_dist)
     # Create evenly spaced bins no less than 0.05 cM wide
     # Add a tiny amount to max_dist while computing bin boundaries so that max_dist
     # falls within the last bin instead of just outside it
     num_boundaries = int(np.ceil(max_dist / min_bin_size))
-    print(num_boundaries)
     bin_boundaries = np.linspace(0, max_dist + 1e-6, num_boundaries)
     # Assign elements of the input tensor to bins and return the number of bins
     bin_indices = np.digitize(dist, bin_boundaries) - 1
@@ -120,10 +125,9 @@ def num_generations(X: np.ndarray, P: np.ndarray, POS: np.ndarray, k1: int = 0, 
     w_prod = np.outer(w, w)
     # Assign all data points to bins based on genetic distance
     bin_indices, num_bins = bin_by_distance(dist, 5e-4)
-    print(num_bins)
     # Compute rolloff statistics for all bins
     coeff, dist_bin = np.zeros(num_bins), np.zeros(num_bins)
-    for bin in range(num_bins):
+    for bin in trange(num_bins, desc='Compute rolloff coefficients'):
         # Select the data points in this bin, and filter out infinities and NaNs
         bin_mask = (bin_indices == bin) & np.isfinite(w_prod) & np.isfinite(z)
         w_bin, z_bin, data_dists_bin = w_prod[bin_mask], z[bin_mask], dist[bin_mask]
