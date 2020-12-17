@@ -42,7 +42,7 @@ def weight(P: np.ndarray, k1: int = 0, k2: int = 1) -> np.ndarray:
     p = (a + b) / 2
     return (a - b) / np.sqrt(p * (1 - p))
 
-@numba.njit                 
+@numba.njit
 def symmetric_outer(X):
     '''
     Performs a symmetric outer product of X with itself, taking the dot products of the rows.
