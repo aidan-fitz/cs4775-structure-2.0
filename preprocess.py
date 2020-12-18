@@ -1,6 +1,9 @@
 import numpy as np
 import vcf
 from tqdm import tqdm, trange
+import os
+
+import argparse
 
 def vcf_drop_loci(vcf_reader: vcf.Reader, drop_frac=0.6):
     '''
@@ -54,14 +57,50 @@ def read_vcf(filename, drop_frac=0.6):
             X[l, i, :] = alleles
     return X, J, POS
 
-def test_read_vcf(filename):
-    X, J, POS = read_vcf(filename)
+def read_phgeno(filename):
+    '''
+    Reads an EIGENSTRAT-formatted (.phgeno) file
+    '''
+    with open(filename, 'r') as f:
+        lines = f.readlines()
+        num_loci = len(lines)
+        num_samples = len(lines[0])
+        # If any of the lines contain '2', this sample is diploid; otherwise, assume it's haploid
+        ploidy = 2 if any('2' in line for line in lines) else 1
+        X = np.zeros((num_loci, num_samples, ploidy), dtype=np.uint8)
+        J = np.full(num_loci, 2, dtype=np.uint8)
+        POS = np.arange(0, num_loci * 1000, 1000, dtype=np.uint8)
+        # Generate random alleles for missing data
+        rng = np.random.default_rng()
+        for l, row in enumerate(lines):
+            for i, x in enumerate(map(int, row.strip())):
+                if x == 9:
+                    # If missing data (9), make it up
+                    X[l, i] = rng.integers(2, size=ploidy)
+                else:
+                    # x == 0, 1, 2 means that 0, 1, or 2 alleles are positive
+                    X[l, i, :x] = 1
+        return X, J, POS
+
+def read_file(filename, drop_frac=0.6):
+    '''
+    Determine the file format and read it in
+    '''
+    _, ext = os.path.splitext(filename)
+    if ext == '.vcf':
+        return read_vcf(filename, drop_frac)
+    elif ext == '.phgeno':
+        return read_phgeno(filename)
+    else:
+        raise ValueError('File extension must be .vcf or .phgeno')
+
+def test_read_file(filename):
+    X, J, POS = read_file(filename)
     print(X.shape, J.shape, POS.shape)
 
 if __name__ == '__main__':
-    import argparse
     parser = argparse.ArgumentParser(description='Read a VCF file and parse it into the internal NumPy representation')
     parser.add_argument('path', metavar='The path to the VCF file to be read')
     args = parser.parse_args()
-    test_read_vcf(args.path)
+    test_read_file(args.path)
 

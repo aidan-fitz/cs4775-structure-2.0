@@ -7,7 +7,7 @@ from tqdm import trange
 
 import argparse
 import h5py
-from preprocess import read_vcf
+from preprocess import read_file
 import os
 import cProfile
 
@@ -181,7 +181,7 @@ class Structure:
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Infer the population structure of a genetic sample using the STRUCTURE algorithm')
-    parser.add_argument('file', metavar='The data file containing the sample in VCF format')
+    parser.add_argument('file', metavar='The data file (*.vcf or .phgeno)')
     parser.add_argument('-k', type=int, default=2, metavar='The number of populations')
     parser.add_argument('-o', '--out', metavar='The file to which the result will be written in HDF5 format')
     parser.add_argument('--profile', action='store_true')
@@ -195,7 +195,7 @@ def main():
     # Parse arguments
     args = parse_args()
     # Read from file and randomly drop loci
-    X, J, POS = read_vcf(args.file, drop_frac=args.drop_frac)
+    X, J, POS = read_file(args.file, drop_frac=args.drop_frac)
     # Run the STRUCTURE algorithm
     structure = Structure(X, J, POS, args.k)
     if args.profile:
