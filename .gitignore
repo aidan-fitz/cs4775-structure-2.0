@@ -134,3 +134,6 @@ dmypy.json
 
 # Output formats
 *.hdf5
+
+# VSCode
+.vscode/
