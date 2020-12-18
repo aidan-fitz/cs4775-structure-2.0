@@ -7,7 +7,7 @@ from tqdm import trange
 
 import argparse
 import h5py
-from preprocess import read_file
+from preprocess import read_file, subst_file_suffix
 import os
 import cProfile
 
@@ -207,8 +207,7 @@ def main():
         if args.out:
             out = args.out
         else:
-            root, ext = os.path.splitext(args.file)
-            out = os.path.basename(root) + '.hdf5'
+            out = subst_file_suffix(args.file, '.hdf5')
         # Write to the output file
         structure.save(out)
 

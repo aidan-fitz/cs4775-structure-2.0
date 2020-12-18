@@ -1,3 +1,4 @@
+from preprocess import hdf5_to_numpy
 import numpy as np
 from scipy.stats import pearsonr
 from scipy.optimize import curve_fit
@@ -169,16 +170,11 @@ def parse_args():
     parser.add_argument('--profile', action='store_true')
     return parser.parse_args()
 
-def to_numpy(hdf5_dset: h5py.Dataset):
-    array = np.empty(hdf5_dset.shape, hdf5_dset.dtype)
-    hdf5_dset.read_direct(array)
-    return array
-
 def main():
     # Parse arguments
     args = parse_args()
     with h5py.File(args.file, 'r') as file:
-        X, P, POS = map(to_numpy, [file['X'], file['P'], file['POS']])
+        X, P, POS = map(hdf5_to_numpy, [file['X'], file['P'], file['POS']])
         if args.profile:
             cProfile.runctx(
                 'num_generations(X, P, POS)',

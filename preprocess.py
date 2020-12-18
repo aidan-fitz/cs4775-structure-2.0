@@ -2,6 +2,7 @@ import numpy as np
 import vcf
 from tqdm import tqdm, trange
 import os
+import h5py
 
 import argparse
 
@@ -97,6 +98,15 @@ def read_file(filename, drop_frac=0.6):
 def test_read_file(filename):
     X, J, POS = read_file(filename)
     print(X.shape, J.shape, POS.shape)
+
+def hdf5_to_numpy(hdf5_dset: h5py.Dataset):
+    array = np.empty(hdf5_dset.shape, hdf5_dset.dtype)
+    hdf5_dset.read_direct(array)
+    return array
+
+def subst_file_suffix(filename, new_ext):
+    root, _ = os.path.splitext(filename)
+    return os.path.basename(root) + new_ext
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Read a VCF file and parse it into the internal NumPy representation')
