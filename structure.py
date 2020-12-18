@@ -7,7 +7,7 @@ from tqdm import trange
 
 import argparse
 import h5py
-from preprocess import read_vcf, drop_loci
+from preprocess import read_vcf
 import os
 import cProfile
 

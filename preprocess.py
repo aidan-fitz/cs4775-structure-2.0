@@ -54,19 +54,6 @@ def read_vcf(filename, drop_frac=0.6):
             X[l, i, :] = alleles
     return X, J, POS
 
-def drop_loci(X, J, POS, frac=0.3):
-    '''
-    Randomly drops loci.
-
-    Parameters:
-    - frac (float): the fraction of loci to drop
-    '''
-    num_loci = X.shape[0]
-    # Generate random boolean mask
-    unif = np.random.random(num_loci)
-    mask = (unif >= frac)
-    return X[mask], J[mask], POS[mask]
-
 def test_read_vcf(filename):
     X, J, POS = read_vcf(filename)
     print(X.shape, J.shape, POS.shape)
