@@ -33,13 +33,13 @@ def plot_QZ(h5file: h5py.File, filename: str):
     K = hdf5_to_numpy(h5file['K']).item()
     Z = hdf5_to_numpy(h5file['Z'])
     num_loci, _, ploidy = Z.shape
-    fig, axs = plt.subplots(1, K, constrained_layout=True)
+    fig, axs = plt.subplots(1, K, constrained_layout=True, figsize=(4 * K, 4))
     for k in range(K):
         frac_ancestry = Q[:, k]
         frac_alleles = np.count_nonzero(Z == k, axis=(0, 2)) / (num_loci * ploidy)
         axs[k].scatter(frac_ancestry, frac_alleles)
         axs[k].set_xlabel(f'Inferred proportion of ancestry from population {k}')
-        axs[k].set_ylabel('Proportion of alleles from population {k}')
+        axs[k].set_ylabel(f'Proportion of alleles from population {k}')
     out = subst_file_suffix(filename, '_QZ.png')
     print(f'Writing plot to {out}')
     plt.savefig(out)
@@ -53,7 +53,7 @@ def parse_args():
 def main():
     args = parse_args()
     with h5py.File(args.file, 'r') as h5file:
-        plot_Q(h5file, args.file)
+        # plot_Q(h5file, args.file)
         plot_QZ(h5file, args.file)
 
 if __name__ == '__main__':
