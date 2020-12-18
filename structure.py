@@ -186,6 +186,9 @@ def parse_args():
     parser.add_argument('-o', '--out', metavar='The file to which the result will be written in HDF5 format')
     parser.add_argument('--profile', action='store_true')
     parser.add_argument('-d', '--drop-frac', type=float, default=0.6, metavar='Randomly drop this fraction of loci')
+    parser.add_argument('-b', '--burn-in', type=int, default=400, metavar='The burn-in period (rounds)')
+    parser.add_argument('-n', '--num-samples', type=int, default=20, metavar='The number of samples to collect')
+    parser.add_argument('-p', '--sample-interval', type=int, default=20, metavar='The number of rounds between samples')
     return parser.parse_args()
 
 def main():
@@ -198,7 +201,7 @@ def main():
     if args.profile:
         cProfile.runctx('structure.gibbs_round()', {}, {'structure': structure}, sort='cumtime')
     else:
-        structure.gibbs_sampling(400, 20, 20)
+        structure.gibbs_sampling(args.burn_in, args.sample_interval, args.num_samples)
         # Create output file using command-line argument if provided. If not, construct
         # the filename by replacing the file extension with .hdf5
         if args.out:
