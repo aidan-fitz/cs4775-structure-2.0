@@ -92,8 +92,10 @@ class Structure:
 
         # Compute the pmf of Pr(Z[l, i, a] = k | X, P, Q) using Equation A12
         pmf_k = np.zeros((self.num_loci, self.sample_size, self.ploidy, self.K))
+        # Use np.einsum to calculate the pmf separately for each l; can't vectorize past that
         for l in range(self.num_loci):
             pmf_k[l] = np.einsum('ik,kia->iak', self.Q, self.P[:, l, self.X[l]])
+        # Divide through by the sum over k
         pmf_k /= np.sum(pmf_k, axis=3, keepdims=True)
         # Convert to cdf; remove the last "hyper-row" (always 1.0)
         cdf = np.cumsum(pmf_k[:, :, :, :-1], axis=3)
@@ -101,7 +103,7 @@ class Structure:
         uniform_samples = self.rng.random(self.Z.shape + (1,))
         # Convert the uniform samples to k-values by counting the number of k-indices for which
         # the uniform sample is greater than the cdf at that index
-        self.Z = np.sum(uniform_samples > cdf, axis=3)
+        self.Z = np.count_nonzero(uniform_samples > cdf, axis=3)
     
     def log_likelihood_alpha(self, alpha):
         '''
@@ -186,9 +188,9 @@ def parse_args():
     parser.add_argument('-o', '--out', metavar='The file to which the result will be written in HDF5 format')
     parser.add_argument('--profile', action='store_true')
     parser.add_argument('-d', '--drop-frac', type=float, default=0.6, metavar='Randomly drop this fraction of loci')
-    parser.add_argument('-b', '--burn-in', type=int, default=400, metavar='The burn-in period (rounds)')
-    parser.add_argument('-n', '--num-samples', type=int, default=20, metavar='The number of samples to collect')
-    parser.add_argument('-p', '--sample-interval', type=int, default=20, metavar='The number of rounds between samples')
+    parser.add_argument('-m', '--burn-in', type=int, default=400, metavar='The burn-in period (rounds)')
+    parser.add_argument('-s', '--num-samples', type=int, default=20, metavar='The number of samples to collect')
+    parser.add_argument('-c', '--sample-interval', type=int, default=20, metavar='The number of rounds between samples')
     return parser.parse_args()
 
 def main():
