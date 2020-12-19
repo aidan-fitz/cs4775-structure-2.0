@@ -70,7 +70,7 @@ def read_phgeno(filename):
         ploidy = 2 if any('2' in line for line in lines) else 1
         X = np.zeros((num_loci, num_samples, ploidy), dtype=np.uint8)
         J = np.full(num_loci, 2, dtype=np.uint8)
-        POS = np.arange(0, num_loci * 1000, 1000, dtype=np.uint8)
+        POS = np.arange(0, num_loci * 10000, 10000, dtype=np.int32)
         # Generate random alleles for missing data
         rng = np.random.default_rng()
         for l, row in enumerate(lines):
