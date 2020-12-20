@@ -164,8 +164,9 @@ def num_generations(X: np.ndarray, P: np.ndarray, POS: np.ndarray, k1: int = 0, 
             coeff[bin] = np.nan
     print('Distances:', dist_bin)
     print('Rolloff coefficients:', coeff)
-    # Fit the binned coefficients to an exponential curve given by coeff = a * exp(-n * dist_bin)
-    est_params, est_covariance = curve_fit(rolloff, dist_bin, coeff)
+    # Fit the binned coefficients to an exponential curve given by coeff = a * exp(-n * dist_bin).
+    # Both a and n must be positive.
+    est_params, est_covariance = curve_fit(rolloff, dist_bin, coeff, bounds=(0, np.inf), absolute_sigma=True)
     return est_params[0], est_params[1], est_covariance[0, 0], dist_bin, coeff, max_dist
 
 def plot_rolloff(n, a, dist_bin, coeff, max_dist, base_filename):
