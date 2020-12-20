@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import h5py
 from preprocess import hdf5_to_numpy, subst_file_suffix
-import os
 
 import argparse
 

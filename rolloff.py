@@ -1,10 +1,11 @@
-from preprocess import hdf5_to_numpy
+from preprocess import hdf5_to_numpy, subst_file_suffix
 import numpy as np
 from scipy.stats import pearsonr
 from scipy.optimize import curve_fit
 from tqdm import trange
 import numba
 
+import matplotlib.pyplot as plt
 import argparse
 import h5py
 import cProfile
@@ -102,6 +103,7 @@ def bin_by_distance(dist: np.ndarray, min_bin_size: float = 9e-4):
     Returns:
     - bin_indices[l1, l2] (int): the zero-based index of the bin that `(l1, l2)` should be assigned to.
     - num_bins (int): the number of bins
+    - max_dist (float): the maximum genetic distance in morgans
     '''
     # Ensure min_bin_size is at least 0.05 cM
     if min_bin_size < 5e-4:
@@ -116,7 +118,7 @@ def bin_by_distance(dist: np.ndarray, min_bin_size: float = 9e-4):
     # Assign elements of the input tensor to bins and return the number of bins
     bin_indices = np.digitize(dist, bin_boundaries) - 1
     num_bins = num_boundaries - 1
-    return bin_indices, num_bins
+    return bin_indices, num_bins, max_dist
 
 def rolloff(d: np.ndarray, n: float, a: float):
     return a * np.exp(-n * d)
@@ -133,6 +135,11 @@ def num_generations(X: np.ndarray, P: np.ndarray, POS: np.ndarray, k1: int = 0, 
 
     Returns:
     - n (float): the estimated number of generations since admixture
+    - a (float): a scale parameter for the rolloff curve
+    - ncov (float): the variance of n
+    - dist_bin (np.ndarray): the mean genetic distance of each bin
+    - coeff (np.ndarray): the rolloff coefficient of each bin
+    - max_dist (float): the maximum genetic distance in morgans
     '''
     # Compute weights, LD scores, and distances for all loci
     w = weight(P, k1, k2)
@@ -141,7 +148,7 @@ def num_generations(X: np.ndarray, P: np.ndarray, POS: np.ndarray, k1: int = 0, 
     # Compute the outer product of w with itself, i.e. w(l1) * w(l2) for all l1, l2
     w_prod = np.outer(w, w)
     # Assign all data points to bins based on genetic distance
-    bin_indices, num_bins = bin_by_distance(dist, 6e-4)
+    bin_indices, num_bins, max_dist = bin_by_distance(dist, 6e-4)
     # Compute rolloff statistics for all bins
     coeff, dist_bin = np.zeros(num_bins), np.zeros(num_bins)
     for bin in trange(num_bins, desc='Compute rolloff coefficients'):
@@ -158,8 +165,31 @@ def num_generations(X: np.ndarray, P: np.ndarray, POS: np.ndarray, k1: int = 0, 
     print('Distances:', dist_bin)
     print('Rolloff coefficients:', coeff)
     # Fit the binned coefficients to an exponential curve given by coeff = a * exp(-n * dist_bin)
-    n, ncov = curve_fit(rolloff, dist_bin, coeff)
-    return n[0], ncov[0, 0]
+    est_params, est_covariance = curve_fit(rolloff, dist_bin, coeff)
+    return est_params[0], est_params[1], est_covariance[0, 0], dist_bin, coeff, max_dist
+
+def plot_rolloff(n, a, dist_bin, coeff, max_dist, base_filename):
+    '''
+    Plot the rolloff coefficients and best-fit curve as a function of distance and save the chart
+    to a file.
+
+    Parameters:
+    - n (float): the estimated number of generations since admixture
+    - a (float): a scale parameter for the rolloff curve
+    - dist_bin (np.ndarray): the mean genetic distance of each bin
+    - coeff (np.ndarray): the rolloff coefficient of each bin
+    - max_dist (float): the maximum genetic distance in morgans
+    - base_filename (str): the base filename used to derive the filename for the chart
+    '''
+    # Plot distances and rolloff coefficients
+    plt.scatter(dist_bin, coeff)
+    # Plot best-fit curve
+    xs = np.linspace(0, max_dist, num=len(dist_bin) * 2)
+    plt.plot(xs, rolloff(xs, n, a))
+    # Add labels
+    plt.xlabel('Genetic distance (morgans)')
+    plt.ylabel('Rolloff coefficient')
+    plt.savefig(subst_file_suffix(base_filename, '_rolloff.png'))
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Infer the number of generations since admixture')
@@ -179,10 +209,11 @@ def main():
                 {'X': X, 'P': P, 'POS': POS},
                 sort='cumtime')
         else:
-            num_gen, n_cov = num_generations(X, P, POS)
+            num_gen, a, n_cov, dist_bin, coeff, max_dist = num_generations(X, P, POS)
             n_stdev = np.sqrt(n_cov)
             print(f'Number of generations: {num_gen}')
             print(f'Standard deviation: {n_stdev}')
+            plot_rolloff(num_gen, a, dist_bin, coeff, max_dist, args.file)
 
 if __name__ == '__main__':
     main()
