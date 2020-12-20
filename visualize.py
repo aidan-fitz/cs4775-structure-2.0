@@ -46,7 +46,7 @@ def plot_QZ(h5file: h5py.File, filename: str):
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Visualize program output')
-    parser.add_argument('file', metavar='The data file (*.hdf5)')
+    parser.add_argument('file', metavar='data_file.hdf5')
     return parser.parse_args()
 
 def main():

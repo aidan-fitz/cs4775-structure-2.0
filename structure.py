@@ -183,14 +183,14 @@ class Structure:
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Infer the population structure of a genetic sample using the STRUCTURE algorithm')
-    parser.add_argument('file', metavar='The data file (*.vcf or .phgeno)')
-    parser.add_argument('-k', type=int, default=2, metavar='The number of populations')
-    parser.add_argument('-o', '--out', metavar='The file to which the result will be written in HDF5 format')
+    parser.add_argument('file', metavar='data_file')
+    parser.add_argument('-k', type=int, default=2, metavar='num_populations')
+    parser.add_argument('-o', '--out', metavar='output.hdf5')
     parser.add_argument('--profile', action='store_true')
-    parser.add_argument('-d', '--drop-frac', type=float, default=0.6, metavar='Randomly drop this fraction of loci')
-    parser.add_argument('-m', '--burn-in', type=int, default=400, metavar='The burn-in period (rounds)')
-    parser.add_argument('-s', '--num-samples', type=int, default=20, metavar='The number of samples to collect')
-    parser.add_argument('-c', '--sample-interval', type=int, default=20, metavar='The number of rounds between samples')
+    parser.add_argument('-d', '--drop-frac', type=float, default=0.6, metavar='drop_frac')
+    parser.add_argument('-m', '--burn-in', type=int, default=400, metavar='num_burn_in_rounds')
+    parser.add_argument('-s', '--num-samples', type=int, default=20, metavar='num_samples')
+    parser.add_argument('-c', '--sample-interval', type=int, default=20, metavar='num_rounds_btwn_samples')
     return parser.parse_args()
 
 def main():

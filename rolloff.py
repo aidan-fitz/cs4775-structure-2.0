@@ -193,7 +193,7 @@ def plot_rolloff(n, a, dist_bin, coeff, max_dist, base_filename):
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Infer the number of generations since admixture')
-    parser.add_argument('file', metavar='The data file in HDF5 format')
+    parser.add_argument('file', metavar='data_file.hdf5')
     parser.add_argument('--profile', action='store_true')
     return parser.parse_args()
 

@@ -110,7 +110,7 @@ def subst_file_suffix(filename, new_ext):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Read a VCF file and parse it into the internal NumPy representation')
-    parser.add_argument('path', metavar='The path to the VCF file to be read')
+    parser.add_argument('path', metavar='file.vcf')
     args = parser.parse_args()
     test_read_file(args.path)
 
