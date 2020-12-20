@@ -97,11 +97,13 @@ def bin_by_distance(dist: np.ndarray, min_bin_size: float = 9e-4):
 
     Parameters:
     - dist[l1, l2] (float): the genetic distance between `l1` and `l2` in morgans
-    - min_bin_size (float): the minimum size in morgans of the bins that this function
-    should create. Default: 0.09 cM. ValueError is raised if this value is less than 0.05 cM.
+    - min_bin_size (float): the minimum size in morgans of the bins that this
+    function should create. Default: 0.09 cM. ValueError is raised if this value 
+    is less than 0.05 cM.
 
     Returns:
-    - bin_indices[l1, l2] (int): the zero-based index of the bin that `(l1, l2)` should be assigned to.
+    - bin_indices[l1, l2] (int): the zero-based index of the bin that `(l1, l2)`
+    should be assigned to.
     - num_bins (int): the number of bins
     - max_dist (float): the maximum genetic distance in morgans
     '''
@@ -123,7 +125,8 @@ def bin_by_distance(dist: np.ndarray, min_bin_size: float = 9e-4):
 def rolloff(d: np.ndarray, n: float, a: float):
     return a * np.exp(-n * d)
 
-def num_generations(X: np.ndarray, P: np.ndarray, POS: np.ndarray, k1: int = 0, k2: int = 1) -> float:
+def num_generations(X: np.ndarray, P: np.ndarray, POS: np.ndarray,
+                    k1: int = 0, k2: int = 1, min_bin_size: float = 9e-4) -> float:
     '''
     Estimates the number of generations since admixture between populations `k1` and `k2`.
 
@@ -132,6 +135,7 @@ def num_generations(X: np.ndarray, P: np.ndarray, POS: np.ndarray, k1: int = 0, 
     - P[k, l, j] (float): the frequency of allele `j` at locus `l` in population `k`
     - POS[l] (int): the position of locus `l` in bps
     - k1, k2 (int): two populations chosen for this function. Default: 0, 1
+    - min_bin_size (float): the minimum bin size to use, in morgans. Default: 0.09 cM
 
     Returns:
     - n (float): the estimated number of generations since admixture
@@ -148,7 +152,7 @@ def num_generations(X: np.ndarray, P: np.ndarray, POS: np.ndarray, k1: int = 0, 
     # Compute the outer product of w with itself, i.e. w(l1) * w(l2) for all l1, l2
     w_prod = np.outer(w, w)
     # Assign all data points to bins based on genetic distance
-    bin_indices, num_bins, max_dist = bin_by_distance(dist, 6e-4)
+    bin_indices, num_bins, max_dist = bin_by_distance(dist, min_bin_size)
     # Compute rolloff statistics for all bins
     coeff, dist_bin = np.zeros(num_bins), np.zeros(num_bins)
     for bin in trange(num_bins, desc='Compute rolloff coefficients'):
@@ -196,6 +200,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Infer the number of generations since admixture')
     parser.add_argument('file', metavar='data_file.hdf5')
     parser.add_argument('--profile', action='store_true')
+    parser.add_argument('-m', '--min-bin-size', type=float, default=0.09, metavar='centimorgans')
     return parser.parse_args()
 
 def main():
@@ -203,14 +208,18 @@ def main():
     args = parse_args()
     with h5py.File(args.file, 'r') as file:
         X, P, POS = map(hdf5_to_numpy, [file['X'], file['P'], file['POS']])
+        # Convert min_bin_size to morgans
+        min_bin_size = args.min_bin_size / 100
+        if min_bin_size < 5e-4:
+            raise ValueError('Bin size must be at least 0.05 centimorgans')
         if args.profile:
             cProfile.runctx(
-                'num_generations(X, P, POS)',
+                'num_generations(X, P, POS, min_bin_size=mbs)',
                 {'num_generations': num_generations},
-                {'X': X, 'P': P, 'POS': POS},
+                {'X': X, 'P': P, 'POS': POS, 'mbs': min_bin_size},
                 sort='cumtime')
         else:
-            num_gen, a, n_cov, dist_bin, coeff, max_dist = num_generations(X, P, POS)
+            num_gen, a, n_cov, dist_bin, coeff, max_dist = num_generations(X, P, POS, min_bin_size=min_bin_size)
             n_stdev = np.sqrt(n_cov)
             print(f'Number of generations: {num_gen}')
             print(f'Standard deviation: {n_stdev}')
