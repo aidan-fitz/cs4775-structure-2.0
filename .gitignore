@@ -138,3 +138,6 @@ dmypy.json
 
 # VSCode
 .vscode/
+
+# Notebooks are used for prototyping and are not part of the project
+*.ipynb
