@@ -37,10 +37,8 @@ def weight(P: np.ndarray, k1: int = 0, k2: int = 1) -> np.ndarray:
     - w[l] (float): the weight function for locus `l`
     '''
     # Caution: Each P[k, l, :] sums to 1
-    # Choose the alleles with the highest frequency in each population at each locus
-    max_allele_freq = np.amax(P, axis=2)
-    # Choose k1, k2
-    a, b = max_allele_freq[k1], max_allele_freq[k2]
+    # Use the frequency of allele 0 at each k, l
+    a, b = P[k1, :, 0], P[k2, :, 0]
     p = (a + b) / 2
     return (a - b) / np.sqrt(p * (1 - p))
 
@@ -143,7 +141,7 @@ def num_generations(X: np.ndarray, P: np.ndarray, POS: np.ndarray, k1: int = 0, 
     # Compute the outer product of w with itself, i.e. w(l1) * w(l2) for all l1, l2
     w_prod = np.outer(w, w)
     # Assign all data points to bins based on genetic distance
-    bin_indices, num_bins = bin_by_distance(dist, 9e-4)
+    bin_indices, num_bins = bin_by_distance(dist, 6e-4)
     # Compute rolloff statistics for all bins
     coeff, dist_bin = np.zeros(num_bins), np.zeros(num_bins)
     for bin in trange(num_bins, desc='Compute rolloff coefficients'):
@@ -155,7 +153,6 @@ def num_generations(X: np.ndarray, P: np.ndarray, POS: np.ndarray, k1: int = 0, 
         if len(w_bin) >= 2:
             # Compute the binned correlation coefficient
             coeff[bin] = pearsonr(w_bin, z_bin)[0]
-            # coeff[bin] = linregress(w_bin, z_bin)[2]
         else:
             coeff[bin] = np.nan
     print('Distances:', dist_bin)
