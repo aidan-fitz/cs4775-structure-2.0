@@ -1,6 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
 import h5py
 from preprocess import hdf5_to_numpy, subst_file_suffix
 
@@ -21,6 +20,7 @@ def plot_Q(h5file: h5py.File, filename: str):
             axs[k].set_xlabel(f'Proportion from population {k + 1}')
             axs[k].set_ylabel('Number of individuals')
     else:
+        plt.figure('Q')
         plt.hist(Q[:, 0], bins=100)
         plt.xlabel('Proportion of ancestry from population 1')
         plt.ylabel('Number of individuals')
@@ -48,6 +48,7 @@ def plot_QZ(h5file: h5py.File, filename: str):
     else:
         frac_ancestry = Q[:, 0]
         frac_alleles = np.count_nonzero(Z == 0, axis=(0, 2)) / (num_loci * ploidy)
+        plt.figure('QZ', constrained_layout=True, figsize=(4, 4))
         plt.scatter(frac_ancestry, frac_alleles)
         plt.xlabel(f'Inferred proportion of ancestry from population 1')
         plt.ylabel(f'Proportion of alleles from population 1')
