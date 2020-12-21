@@ -141,3 +141,6 @@ dmypy.json
 
 # Notebooks are used for prototyping and are not part of the project
 *.ipynb
+
+# Submission file
+*.zip
