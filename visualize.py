@@ -42,14 +42,14 @@ def plot_QZ(h5file: h5py.File, filename: str):
         for k in range(K):
             frac_ancestry = Q[:, k]
             frac_alleles = np.count_nonzero(Z == k, axis=(0, 2)) / (num_loci * ploidy)
-            axs[k].scatter(frac_ancestry, frac_alleles)
+            axs[k].scatter(frac_ancestry, frac_alleles, s=9)
             axs[k].set_xlabel(f'Inferred proportion of ancestry from population {k + 1}')
             axs[k].set_ylabel(f'Proportion of alleles from population {k + 1}')
     else:
         frac_ancestry = Q[:, 0]
         frac_alleles = np.count_nonzero(Z == 0, axis=(0, 2)) / (num_loci * ploidy)
         plt.figure('QZ', constrained_layout=True, figsize=(4, 4))
-        plt.scatter(frac_ancestry, frac_alleles)
+        plt.scatter(frac_ancestry, frac_alleles, s=9)
         plt.xlabel(f'Inferred proportion of ancestry from population 1')
         plt.ylabel(f'Proportion of alleles from population 1')
     out = subst_file_suffix(filename, '_QZ.png')

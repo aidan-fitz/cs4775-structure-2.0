@@ -173,7 +173,7 @@ def num_generations(X: np.ndarray, P: np.ndarray, POS: np.ndarray,
     est_params, est_covariance = curve_fit(rolloff, dist_bin, coeff, bounds=(0, np.inf), absolute_sigma=True)
     return est_params[0], est_params[1], est_covariance[0, 0], dist_bin, coeff, max_dist
 
-def plot_rolloff(n, a, dist_bin, coeff, max_dist, base_filename):
+def plot_rolloff(n, a, dist_bin, coeff, max_dist, filename):
     '''
     Plot the rolloff coefficients and best-fit curve as a function of distance and save the chart
     to a file.
@@ -184,7 +184,7 @@ def plot_rolloff(n, a, dist_bin, coeff, max_dist, base_filename):
     - dist_bin (np.ndarray): the mean genetic distance of each bin
     - coeff (np.ndarray): the rolloff coefficient of each bin
     - max_dist (float): the maximum genetic distance in morgans
-    - base_filename (str): the base filename used to derive the filename for the chart
+    - filename (str): the destination filename for the chart
     '''
     # Plot distances and rolloff coefficients
     plt.scatter(dist_bin, coeff)
@@ -194,7 +194,7 @@ def plot_rolloff(n, a, dist_bin, coeff, max_dist, base_filename):
     # Add labels
     plt.xlabel('Genetic distance (morgans)')
     plt.ylabel('Rolloff coefficient')
-    plt.savefig(subst_file_suffix(base_filename, '_rolloff.png'))
+    plt.savefig(filename)
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Infer the number of generations since admixture')
@@ -223,7 +223,8 @@ def main():
             n_stdev = np.sqrt(n_cov)
             print(f'Number of generations: {num_gen}')
             print(f'Standard deviation: {n_stdev}')
-            plot_rolloff(num_gen, a, dist_bin, coeff, max_dist, args.file)
+            output_filename = subst_file_suffix(args.file, f'_rolloff_{args.min_bin_size}.png')
+            plot_rolloff(num_gen, a, dist_bin, coeff, max_dist, output_filename)
 
 if __name__ == '__main__':
     main()
