@@ -8,7 +8,6 @@ from tqdm import trange
 import argparse
 import h5py
 from preprocess import read_file, subst_file_suffix
-import os
 import cProfile
 
 class Structure:
